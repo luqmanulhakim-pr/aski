@@ -35,12 +35,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
               >
                 Daftar Penyakit
               </Link>
-              <Link
-                href="/about"
-                className="text-gray-600 hover:text-blue-600 transition-colors font-medium"
-              >
-                Tentang
-              </Link>
               <button className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 font-medium">
                 Mulai Chat
               </button>
