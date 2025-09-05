@@ -74,7 +74,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">A</span>
                 </div>
-                <span className="text-xl font-bold">ASKI Health</span>
+                <span className="text-xl font-bold">ASKI</span>
               </div>
               <p className="text-gray-400 mb-4">
                 Asisten Kesehatan Interaktif berbasis AI yang membantu Anda
