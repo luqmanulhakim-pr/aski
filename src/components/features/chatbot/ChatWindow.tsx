@@ -1,133 +1,237 @@
 "use client";
-import { useChat } from "@/hooks/chat";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { useState, useRef, useEffect } from "react";
+import { nanoid } from "@/lib/utils";
 
-interface Props {
-  compact?: boolean;
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
 }
 
-export default function ChatWindow({ compact }: Props) {
-  const { messages, input, setInput, loading, send, reset } = useChat();
+interface ChatWindowProps {
+  compact?: boolean;
+  initialMessage?: string;
+}
+
+export default function ChatWindow({
+  compact = false,
+  initialMessage = "",
+}: ChatWindowProps) {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: nanoid(),
+      role: "assistant",
+      content:
+        "Halo! Saya ASKI, asisten AI untuk kesehatan. Ada yang bisa saya bantu hari ini?",
+      timestamp: new Date(),
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Handle initial message dari ChatButton
+  useEffect(() => {
+    if (initialMessage && initialMessage.trim() !== "") {
+      setInput(initialMessage);
+      // Auto-focus pada input setelah set message
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [initialMessage]);
+
+  // Separate submit logic
+  const submitMessage = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      id: nanoid(),
+      role: "user",
+      content: input.trim(),
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE}/api/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: userMessage.content,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const assistantMessage: Message = {
+        id: nanoid(),
+        role: "assistant",
+        content:
+          data.answer ||
+          "Maaf, saya tidak dapat memproses permintaan Anda saat ini.",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("Chat error:", error);
+      const errorMessage: Message = {
+        id: nanoid(),
+        role: "assistant",
+        content:
+          "Maaf, terjadi kesalahan. Pastikan backend sedang berjalan di http://localhost:8000",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    await submitMessage();
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submitMessage(); // Call submitMessage directly instead of handleSubmit
+    }
+  };
 
   return (
-    <div className="bg-white flex flex-col h-[520px] rounded-3xl overflow-hidden">
+    <div
+      className={`flex flex-col ${
+        compact ? "h-[500px]" : "h-[600px]"
+      } bg-white`}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+      <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              />
             </svg>
           </div>
           <div>
-            <h3 className="font-semibold text-sm">ASKI Health Assistant</h3>
-            <p className="text-xs text-blue-100">AI Kesehatan Terpercaya</p>
+            <h3 className="font-semibold">ASKI Assistant</h3>
+            <p className="text-sm text-blue-100">Asisten Kesehatan AI</p>
+          </div>
+          <div className="ml-auto">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={reset}
-          disabled={loading}
-          className="text-white hover:bg-white/20 border-white/30"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-        </Button>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-50 to-white">
-        {messages.map((m) => (
-          <div key={m.id} className="flex flex-col space-y-2">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex ${
+              message.role === "user" ? "justify-end" : "justify-start"
+            }`}
+          >
             <div
-              className={`flex ${
-                m.role === "user" ? "justify-end" : "justify-start"
+              className={`max-w-[80%] px-4 py-3 rounded-2xl ${
+                message.role === "user"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-800 shadow-sm border"
               }`}
             >
-              <div
-                className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm ${
-                  m.role === "user"
-                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white ml-auto"
-                    : "bg-white border border-gray-200 shadow-sm"
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                {message.content}
+              </p>
+              <p
+                className={`text-xs mt-2 ${
+                  message.role === "user" ? "text-blue-100" : "text-gray-500"
                 }`}
               >
-                <div className="flex items-center space-x-2 mb-1">
-                  {m.role === "assistant" && (
-                    <div className="w-5 h-5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
-                      <span className="text-[10px] text-white font-bold">
-                        A
-                      </span>
-                    </div>
-                  )}
-                  <span
-                    className={`text-xs font-medium ${
-                      m.role === "user" ? "text-blue-100" : "text-gray-600"
-                    }`}
-                  >
-                    {m.role === "user" ? "Anda" : "ASKI"}
-                  </span>
-                </div>
-                <div className="whitespace-pre-wrap leading-relaxed">
-                  {m.content}
-                </div>
-
-                {/* Sources */}
-                {m.role === "assistant" && (m as any).sources?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-gray-100">
-                    <div className="text-xs text-gray-500">
-                      <span className="font-medium">Sumber:</span>{" "}
-                      {(m as any).sources
-                        .map((s: string) => s.split(":").pop())
-                        .join(", ")}
-                    </div>
-                  </div>
-                )}
-              </div>
+                {message.timestamp.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
             </div>
           </div>
         ))}
 
-        {loading && (
+        {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-white border border-gray-200 shadow-sm rounded-2xl px-4 py-3 max-w-[80%]">
+            <div className="bg-white text-gray-800 shadow-sm border px-4 py-3 rounded-2xl">
               <div className="flex items-center space-x-2">
-                <div className="w-5 h-5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
-                  <span className="text-[10px] text-white font-bold">A</span>
-                </div>
                 <div className="flex space-x-1">
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.1s" }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  ></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
                 </div>
+                <span className="text-sm text-gray-500">
+                  ASKI sedang berpikir...
+                </span>
               </div>
             </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
+      </div>
 
-        {!messages.length && (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="p-4 border-t bg-white">
+        <div className="flex space-x-3">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyPress} // Changed from onKeyPress to onKeyDown
+            placeholder="Tanyakan tentang kesehatan..."
+            className="flex-1 resize-none border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            rows={1}
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+          >
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
               <svg
-                className="w-8 h-8 text-blue-600"
+                className="w-4 h-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -136,95 +240,37 @@ export default function ChatWindow({ compact }: Props) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
                 />
               </svg>
-            </div>
-            <h4 className="font-medium text-gray-900 mb-2">Halo! Saya ASKI</h4>
-            <p className="text-sm text-gray-600 mb-4">
-              Asisten kesehatan AI yang siap membantu Anda
-            </p>
-            <div className="bg-blue-50 rounded-xl p-4 text-left">
-              <p className="text-xs text-blue-700 font-medium mb-2">
-                Contoh pertanyaan:
-              </p>
-              <ul className="text-xs text-blue-600 space-y-1">
-                <li>• "Saya demam tinggi dan nyeri sendi"</li>
-                <li>• "Apa gejala diabetes?"</li>
-                <li>• "Cara mencegah hipertensi"</li>
-              </ul>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Input Form */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          send();
-        }}
-        className="p-4 bg-white border-t border-gray-100"
-      >
-        <div className="flex gap-3">
-          <div className="flex-1 relative">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ketik pertanyaan kesehatan Anda..."
-              disabled={loading}
-              className="pr-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-            >
-              {loading ? (
-                <svg
-                  className="w-4 h-4 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : (
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                  />
-                </svg>
-              )}
-            </button>
-          </div>
+            )}
+          </button>
         </div>
 
-        {!compact && (
-          <p className="text-[10px] text-gray-500 mt-2 text-center">
-            💡 Informasi ini bersifat edukatif. Konsultasikan dengan dokter
-            untuk diagnosis yang akurat.
-          </p>
-        )}
+        {/* Quick Actions */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setInput("Apa saja gejala demam berdarah?")}
+            className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+          >
+            💊 Gejala Penyakit
+          </button>
+          <button
+            type="button"
+            onClick={() => setInput("Bagaimana cara mencegah hipertensi?")}
+            className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+          >
+            🛡️ Pencegahan
+          </button>
+          <button
+            type="button"
+            onClick={() => setInput("Obat apa yang bagus untuk flu?")}
+            className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+          >
+            💉 Pengobatan
+          </button>
+        </div>
       </form>
     </div>
   );

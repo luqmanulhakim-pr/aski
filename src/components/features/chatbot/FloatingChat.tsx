@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import ChatWindow from "./ChatWindow";
-import { cn } from "@/lib/utils";
 
 export default function FloatingChat() {
   const [open, setOpen] = useState(false);
+  const [initialMessage, setInitialMessage] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem("aski_chat_open");
@@ -14,6 +14,26 @@ export default function FloatingChat() {
   useEffect(() => {
     localStorage.setItem("aski_chat_open", open ? "1" : "0");
   }, [open]);
+
+  // Listen untuk event dari ChatButton
+  useEffect(() => {
+    const handleChatEvent = (event: CustomEvent) => {
+      setInitialMessage(event.detail);
+      setOpen(true);
+    };
+
+    window.addEventListener(
+      "openChatWithMessage",
+      handleChatEvent as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "openChatWithMessage",
+        handleChatEvent as EventListener
+      );
+    };
+  }, []);
 
   const escHandler = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") setOpen(false);
@@ -54,7 +74,7 @@ export default function FloatingChat() {
   return (
     <div className="fixed z-50 bottom-6 right-6 w-[380px] md:w-[420px]">
       <div className="relative rounded-3xl shadow-2xl ring-1 ring-black/5 bg-white overflow-hidden backdrop-blur-sm">
-        {/* Close Button - Dipindah ke atas ChatWindow */}
+        {/* Close Button */}
         <div className="absolute -top-2 -right-2 z-10">
           <button
             onClick={() => setOpen(false)}
@@ -76,7 +96,7 @@ export default function FloatingChat() {
             </svg>
           </button>
         </div>
-        <ChatWindow compact />
+        <ChatWindow compact initialMessage={initialMessage} />
       </div>
     </div>
   );
