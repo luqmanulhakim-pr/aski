@@ -67,21 +67,14 @@ export default function ChatWindow({
     setIsLoading(true);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE}/api/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: userMessage.content,
-          }),
-        }
-      );
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage.content }),
+      });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP ${response.status}`);
       }
 
       const data = await response.json();
@@ -90,8 +83,8 @@ export default function ChatWindow({
         id: nanoid(),
         role: "assistant",
         content:
-          data.answer ||
-          "Maaf, saya tidak dapat memproses permintaan Anda saat ini.",
+          (data.answer && data.answer.trim()) ||
+          "Maaf, jawaban tidak tersedia saat ini.",
         timestamp: new Date(),
       };
 
@@ -102,7 +95,7 @@ export default function ChatWindow({
         id: nanoid(),
         role: "assistant",
         content:
-          "Maaf, terjadi kesalahan. Pastikan backend sedang berjalan di http://localhost:8000",
+          "Maaf, terjadi kesalahan menghubungi layanan chat. Coba lagi beberapa saat.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);

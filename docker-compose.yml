@@ -6,8 +6,8 @@ services:
     image: luqmanul25/aski-frontend:latest
     build: .
     ports:
-      - "3000:3000"
+      - "80:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_BASE=http://10.0.2.69:8000
+      - NEXT_PUBLIC_API_BASE=http://10.0.2.60:8000
     restart: unless-stopped

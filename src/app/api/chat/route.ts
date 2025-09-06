@@ -1,23 +1,31 @@
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
+
+const backend = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+  try {
+    const body = await req.json();
+    const upstream = await fetch(`${backend}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
-  // FIX: Ganti /chat menjadi /api/chat sesuai backend
-  const upstream = await fetch(`${BASE}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+    const data = await upstream.json().catch(() => ({}));
 
-  const text = await upstream.text();
-  return new Response(text, {
-    status: upstream.status,
-    headers: {
-      "Content-Type":
-        upstream.headers.get("Content-Type") || "application/json",
-      "Access-Control-Allow-Origin": "*",
-    },
-  });
+    if (!upstream.ok) {
+      return new Response(
+        JSON.stringify({ error: `Upstream ${upstream.status}`, data }),
+        { status: 502 }
+      );
+    }
+
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "unknown error";
+    return new Response(JSON.stringify({ error: msg }), { status: 500 });
+  }
 }
